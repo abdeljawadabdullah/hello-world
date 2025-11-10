@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VR Password Builder + Intro Video</title>
+<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+<style>
+  body { margin: 0; }
+  .fade-in { animation: fadeIn 2s forwards; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<a-scene background="color:#111">
+
+  <!-- Assets -->
+  <a-assets>
+    <video id="bgVideo" src="cyber_attack_360.mp4" preload="auto" playsinline webkit-playsinline crossorigin="anonymous"></video>
+  </a-assets>
+
+  <!-- 360° Video Sphere -->
+  <a-videosphere id="videoSphere" src="#bgVideo" visible="false"></a-videosphere>
+
+  <!-- Camera + cursor -->
+  <a-entity camera look-controls position="0 1.6 0">
+    <a-entity cursor="fuse:false;rayOrigin:mouse"
+              raycaster="objects:.key, .startBtn"
+              position="0 0 -1"
+              geometry="primitive:ring;radiusInner:0.01;radiusOuter:0.02"
+              material="color:#fff;shader:flat"></a-entity>
+  </a-entity>
+
+  <!-- VR Controllers -->
+  <a-entity id="leftHand"
+            oculus-touch-controls="hand: left"
+            vive-controls="hand: left"
+            windows-motion-controls="hand: left"
+            laser-controls="hand: left"
+            raycaster="objects: .key; lineColor: red; lineOpacity: 0.5"></a-entity>
+
+  <a-entity id="rightHand"
+            oculus-touch-controls="hand: right"
+            vive-controls="hand: right"
+            windows-motion-controls="hand: right"
+            laser-controls="hand: right"
+            raycaster="objects: .key; lineColor: blue; lineOpacity: 0.5"></a-entity>
+
+  <!-- START BUTTON -->
+  <a-box id="startBtn" class="startBtn" position="0 1.5 -2" width="1.8" height="0.6" depth="0.1"
+         color="#4CAF50" material="opacity:0.9">
+    <a-text value="Start Experience" align="center" color="#fff" width="1.4" position="0 0 0.06"></a-text>
+  </a-box>
+
+  <!-- Password panel -->
+  <a-plane id="passwordBg" position="0 2 -2" width="3" height="0.5" color="#333" material="opacity:0.8"></a-plane>
+  <a-text id="passwordDisplay" value="" color="#fff" align="center" width="2.8" position="0 2 -1.99"></a-text>
+  <a-plane id="statusBg" position="0 2.6 -2" width="2" height="0.3" color="#e74c3c" material="opacity:0.8"></a-plane>
+  <a-text id="status" value="Vulnerable" color="#fff" align="center" width="1.8" position="0 2.6 -1.99"></a-text>
+
+  <!-- Keyboard container -->
+  <a-entity id="keyboard" position="0 0.7 -1.5" rotation="-20 0 0"></a-entity>
+
+  <!-- Lights -->
+  <a-entity light="type: ambient; intensity:0.7"></a-entity>
+  <a-entity light="type: directional; intensity:0.6" position="1 2 1"></a-entity>
+
+<script>
+const keyboardEl = document.getElementById('keyboard');
+const passwordDisplay = document.getElementById('passwordDisplay');
+const statusText = document.getElementById('status');
+const statusBg = document.getElementById('statusBg');
+const startBtn = document.getElementById('startBtn');
+const videoSphere = document.getElementById('videoSphere');
+const videoEl = document.getElementById('bgVideo');
+let password = "";
+let shiftOn = false;
+
+// Hide all game elements initially
+toggleGame(false);
+
+// When start button is clicked
+startBtn.addEventListener('click', () => {
+  startBtn.setAttribute('visible', 'false');
+  videoSphere.setAttribute('visible', 'true');
+  videoEl.play();
+});
+
+// When video ends
+videoEl.addEventListener('ended', () => {
+  videoSphere.setAttribute('visible', 'false');
+  toggleGame(true);
+  document.querySelectorAll('#passwordBg, #passwordDisplay, #statusBg, #status, #keyboard')
+          .forEach(el => el.classList.add('fade-in'));
+});
+
+// Show/hide game elements
+function toggleGame(show) {
+  const display = show ? 'true' : 'false';
+  document.getElementById('passwordBg').setAttribute('visible', display);
+  document.getElementById('passwordDisplay').setAttribute('visible', display);
+  document.getElementById('statusBg').setAttribute('visible', display);
+  document.getElementById('status').setAttribute('visible', display);
+  keyboardEl.setAttribute('visible', display);
+}
+
+// Keyboard rows
+const rows = [
+  "QWERTYUIOP",
+  "ASDFGHJKL",
+  "ZXCVBNM",
+  "1234567890",
+  "!@#$%&*?"
+];
+const colors = ["#3498db","#3498db","#3498db","#f1c40f","#e74c3c"];
+
+// Create a key
+function createKey(char,rowIndex,i,rowEntity){
+  const key = document.createElement('a-box');
+  key.setAttribute('class','key');
+  key.setAttribute('data-char', char);
+  key.setAttribute('width','0.18');
+  key.setAttribute('height','0.18');
+  key.setAttribute('depth','0.06');
+  key.setAttribute('color', colors[rowIndex]);
+  key.setAttribute('position',`${i*0.2} 0 0`);
+  rowEntity.appendChild(key);
+
+  const label = document.createElement('a-text');
+  label.setAttribute('value', shiftOn && /[a-zA-Z]/.test(char)? char : char.toLowerCase());
+  label.setAttribute('color','#000');
+  label.setAttribute('align','center');
+  label.setAttribute('width','0.8');       
+  label.setAttribute('position', `0 0 0.031`);
+  label.setAttribute('baseline', 'center');  
+  key.appendChild(label);
+
+  key.addEventListener('click', ()=>{
+    let inputChar = char;
+    if(/[a-zA-Z]/.test(char)) inputChar = shiftOn ? char : char.toLowerCase();
+    password += inputChar;
+    passwordDisplay.setAttribute('value', password);
+    checkPassword();
+  });
+}
+
+// Create all keys
+rows.forEach((row,rowIndex)=>{
+  const rowEntity = document.createElement('a-entity');
+  rowEntity.setAttribute('position',`-${(row.length-1)*0.2/2} ${-0.22*rowIndex} 0`);
+  keyboardEl.appendChild(rowEntity);
+  for(let i=0;i<row.length;i++){
+    createKey(row[i],rowIndex,i,rowEntity);
+  }
+});
+
+// Shift button
+const shift = document.createElement('a-box');
+shift.setAttribute('width','0.26');
+shift.setAttribute('height','0.18');
+shift.setAttribute('depth','0.06');
+shift.setAttribute('color','#9b59b6');
+shift.setAttribute('position','-1.7 -0.44 0');
+shift.classList.add('key');
+keyboardEl.appendChild(shift);
+const shiftLabel = document.createElement('a-text');
+shiftLabel.setAttribute('value','Shift');
+shiftLabel.setAttribute('color','#000');
+shiftLabel.setAttribute('align','center');
+shiftLabel.setAttribute('width','0.8'); 
+shiftLabel.setAttribute('position', '0 0 0.031');
+shiftLabel.setAttribute('baseline', 'center');
+shift.appendChild(shiftLabel);
+
+shift.addEventListener('click',()=>{
+  shiftOn = !shiftOn;
+  shift.setAttribute('color', shiftOn ? '#8e44ad' : '#9b59b6');
+  document.querySelectorAll('.key').forEach(k=>{
+    const char = k.dataset.char;
+    if(k.childNodes[0] && char && /[a-zA-Z]/.test(char)){
+      k.childNodes[0].setAttribute('value', shiftOn ? char : char.toLowerCase());
+    }
+  });
+});
+
+// Backspace button
+const back = document.createElement('a-box');
+back.setAttribute('width','0.26');
+back.setAttribute('height','0.18');
+back.setAttribute('depth','0.06');
+back.setAttribute('color','#e67e22');
+back.setAttribute('position','1.8 -0.44 0');
+back.classList.add('key');
+keyboardEl.appendChild(back);
+const backLabel = document.createElement('a-text');
+backLabel.setAttribute('value','Back');
+backLabel.setAttribute('color','#000');
+backLabel.setAttribute('align','center');
+backLabel.setAttribute('width','0.8'); 
+backLabel.setAttribute('position', '0 0 0.031');
+backLabel.setAttribute('baseline', 'center');
+back.appendChild(backLabel);
+
+back.addEventListener('click',()=>{
+  password = password.slice(0,-1);
+  passwordDisplay.setAttribute('value',password);
+  checkPassword();
+});
+
+// Password checker
+function checkPassword(){
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSymbol = /[!@#$%&*?]/.test(password);
+  const longEnough = password.length>=8;
+  if(hasUpper && hasLower && hasNumber && hasSymbol && longEnough){
+    statusText.setAttribute('value','Safe');
+    statusBg.setAttribute('color','#2ecc71');
+  } else {
+    statusText.setAttribute('value','Vulnerable');
+    statusBg.setAttribute('color','#e74c3c');
+  }
+}
+</script>
+</a-scene>
+</body>
+</html>
